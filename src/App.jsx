@@ -99,8 +99,36 @@ function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("historicoEtiquetas", JSON.stringify(historico));
-  }, [historico]);
+  async function carregarEtiquetas() {
+    const { data, error } = await supabase
+      .from("etiquetas")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao carregar etiquetas do Supabase.");
+      return;
+    }
+
+    const etiquetasFormatadas = data.map((item) => ({
+      id: item.id,
+      produto: item.produto,
+      lote: item.lote,
+      producao: item.producao.split("-").reverse().join("/"),
+      validade: item.validade.split("-").reverse().join("/"),
+      setor: item.setor,
+      responsavel: item.responsavel,
+      quantidade: item.quantidade,
+      unidade: "",
+      criadoEm: item.created_at,
+    }));
+
+    setHistorico(etiquetasFormatadas);
+  }
+
+  carregarEtiquetas();
+}, []);
 
   useEffect(() => {
     localStorage.setItem("produtos", JSON.stringify(produtos));
@@ -261,25 +289,46 @@ function App() {
     };
   }
 
-  function gerarEtiqueta() {
-    if (Number(quantidade) <= 0) {
-      return alert("A quantidade precisa ser maior que zero.");
-    }
-
-    if (Number(quantidadeEtiquetas) <= 0) {
-      return alert("A quantidade de etiquetas precisa ser maior que zero.");
-    }
-
-    const novasEtiquetas = Array.from(
-      { length: Number(quantidadeEtiquetas) },
-      (_, index) => montarEtiqueta(index + 1)
-    );
-
-    setEtiqueta(novasEtiquetas[0]);
-    setEtiquetasParaImprimir(novasEtiquetas);
-    setHistorico([...novasEtiquetas, ...historico]);
+  async function gerarEtiqueta() {
+  if (Number(quantidade) <= 0) {
+    return alert("A quantidade precisa ser maior que zero.");
   }
 
+  if (Number(quantidadeEtiquetas) <= 0) {
+    return alert("A quantidade de etiquetas precisa ser maior que zero.");
+  }
+
+  const novasEtiquetas = Array.from(
+    { length: Number(quantidadeEtiquetas) },
+    (_, index) => montarEtiqueta(index + 1)
+  );
+
+  setEtiqueta(novasEtiquetas[0]);
+  setEtiquetasParaImprimir(novasEtiquetas);
+
+  const etiquetasParaBanco = novasEtiquetas.map((item) => ({
+    produto: item.produto,
+    lote: item.lote,
+    producao: item.producao.split("/").reverse().join("-"),
+    validade: item.validade.split("/").reverse().join("-"),
+    setor: item.setor,
+    responsavel: item.responsavel,
+    quantidade: `${item.quantidade} ${item.unidade}`,
+    status: getStatus(item.validade),
+  }));
+
+  const { error } = await supabase
+    .from("etiquetas")
+    .insert(etiquetasParaBanco);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao salvar etiqueta no Supabase.");
+    return;
+  }
+
+  setHistorico([...novasEtiquetas, ...historico]);
+}
   function excluirEtiqueta(id) {
     const confirmar = confirm("Deseja excluir esta etiqueta do histórico?");
 
