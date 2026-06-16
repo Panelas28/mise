@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { supabase } from "./services/supabase";
 import Dashboard from "./components/Dashboard";
 import GerarEtiqueta from "./components/GerarEtiqueta";
 import HistoricoEtiquetas from "./components/HistoricoEtiquetas";
@@ -78,6 +79,19 @@ function App() {
     const salvo = localStorage.getItem("historicoTemperaturas");
     return salvo ? JSON.parse(salvo) : [];
   });
+
+  useEffect(() => {
+  async function testar() {
+    const { data, error } = await supabase
+      .from("produtos")
+      .select("*");
+
+    console.log(data);
+    console.log(error);
+  }
+
+  testar();
+}, []);
 
   useEffect(() => {
     const historicoSalvo = localStorage.getItem("historicoEtiquetas");
