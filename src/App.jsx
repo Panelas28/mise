@@ -8,6 +8,7 @@ import LoginResponsavel from "./components/LoginResponsavel";
 import ProducaoHoje from "./components/ProducaoHoje";
 import Produtos from "./components/Produtos";
 import Temperaturas from "./components/Temperaturas";
+import OrdensProducao from "./components/OrdensProducao";
 
 import { setores, unidades } from "./data/constants";
 
@@ -61,6 +62,14 @@ function App() {
   const [temperatura, setTemperatura] = useState("");
 
   const [historicoTemperaturas, setHistoricoTemperaturas] = useState([]);
+
+  const [ordensProducao, setOrdensProducao] = useState([]);
+
+  const [ordemProduto, setOrdemProduto] = useState("");
+  const [ordemQuantidade, setOrdemQuantidade] = useState(1);
+  const [ordemUnidade, setOrdemUnidade] = useState("kg");
+  const [ordemData, setOrdemData] = useState(hojeInput());
+  const [ordemObservacao, setOrdemObservacao] = useState("");
 
   async function carregarProdutos() {
     const { data, error } = await supabase
@@ -163,11 +172,28 @@ function App() {
     setHistoricoTemperaturas(temperaturasFormatadas);
   }
 
+  async function carregarOrdens() {
+    const { data, error } = await supabase
+      .from("ordens_producao")
+      .select("*")
+      .order("data_producao", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao carregar ordens de produção.");
+      return;
+    }
+
+    setOrdensProducao(data);
+  }
+
   useEffect(() => {
     carregarProdutos();
     carregarFuncionarios();
     carregarEquipamentos();
     carregarTemperaturas();
+    carregarOrdens();
   }, []);
 
   useEffect(() => {
@@ -211,6 +237,21 @@ function App() {
       setUnidade(produtos[produto].unidade);
     }
   }, [produto, produtos]);
+
+  useEffect(() => {
+    const primeiroProduto = Object.keys(produtos)[0];
+
+    if (primeiroProduto && !ordemProduto) {
+      setOrdemProduto(primeiroProduto);
+      setOrdemUnidade(produtos[primeiroProduto]?.unidade || "kg");
+    }
+  }, [produtos, ordemProduto]);
+
+  useEffect(() => {
+    if (produtos[ordemProduto]?.unidade) {
+      setOrdemUnidade(produtos[ordemProduto].unidade);
+    }
+  }, [ordemProduto, produtos]);
 
   const hoje = formatarData(new Date());
 
@@ -639,6 +680,69 @@ function App() {
     setHistoricoTemperaturas([]);
   }
 
+  async function criarOrdem() {
+    if (!ordemProduto) return alert("Selecione um produto.");
+    if (Number(ordemQuantidade) <= 0) {
+      return alert("A quantidade precisa ser maior que zero.");
+    }
+
+    const { error } = await supabase
+      .from("ordens_producao")
+      .insert({
+        produto: ordemProduto,
+        quantidade: Number(ordemQuantidade),
+        unidade: ordemUnidade,
+        responsavel: funcionarioAtual,
+        status: "Pendente",
+        observacao: ordemObservacao,
+        data_producao: ordemData,
+      });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao criar ordem de produção.");
+      return;
+    }
+
+    await carregarOrdens();
+
+    setOrdemQuantidade(1);
+    setOrdemObservacao("");
+  }
+
+  async function atualizarStatusOrdem(id, novoStatus) {
+    const { error } = await supabase
+      .from("ordens_producao")
+      .update({ status: novoStatus })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao atualizar ordem de produção.");
+      return;
+    }
+
+    await carregarOrdens();
+  }
+
+  async function excluirOrdem(id) {
+    const confirmar = confirm("Deseja excluir esta ordem de produção?");
+    if (!confirmar) return;
+
+    const { error } = await supabase
+      .from("ordens_producao")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao excluir ordem de produção.");
+      return;
+    }
+
+    await carregarOrdens();
+  }
+
   const historicoFiltrado = historico.filter((item) => {
     const termo = busca.toLowerCase();
     const status = getStatus(item.validade);
@@ -663,6 +767,22 @@ function App() {
 
     return true;
   });
+
+  const ordensHoje = ordensProducao.filter((ordem) => {
+    return ordem.data_producao === hojeInput();
+  });
+
+  const ordensPendentes = ordensHoje.filter(
+    (ordem) => ordem.status === "Pendente"
+  ).length;
+
+  const ordensEmProducao = ordensHoje.filter(
+    (ordem) => ordem.status === "Em Produção"
+  ).length;
+
+  const ordensConcluidas = ordensHoje.filter(
+    (ordem) => ordem.status === "Concluído"
+  ).length;
 
   return (
     <div>
@@ -761,6 +881,7 @@ function App() {
         <button onClick={() => setAba("etiquetas")}>Etiquetas</button>
         <button onClick={() => setAba("produtos")}>Produtos</button>
         <button onClick={() => setAba("temperaturas")}>Temperaturas</button>
+        <button onClick={() => setAba("ordens")}>Ordens</button>
       </nav>
 
       <LoginResponsavel
@@ -879,6 +1000,63 @@ function App() {
           exportarTemperaturas={exportarTemperaturas}
           limparTemperaturas={limparTemperaturas}
         />
+      )}
+
+      {aba === "ordens" && (
+        <>
+          <h2>Resumo das Ordens de Hoje</h2>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "15px",
+              justifyContent: "center",
+              flexWrap: "wrap",
+              marginBottom: "25px",
+            }}
+          >
+            <div style={{ border: "1px solid white", padding: "15px", minWidth: "170px" }}>
+              <h3>📋 Ordens Hoje</h3>
+              <h2>{ordensHoje.length}</h2>
+            </div>
+
+            <div style={{ border: "1px solid white", padding: "15px", minWidth: "170px" }}>
+              <h3>⏳ Pendentes</h3>
+              <h2>{ordensPendentes}</h2>
+            </div>
+
+            <div style={{ border: "1px solid white", padding: "15px", minWidth: "170px" }}>
+              <h3>🔥 Em Produção</h3>
+              <h2>{ordensEmProducao}</h2>
+            </div>
+
+            <div style={{ border: "1px solid white", padding: "15px", minWidth: "170px" }}>
+              <h3>✅ Concluídas</h3>
+              <h2>{ordensConcluidas}</h2>
+            </div>
+          </div>
+
+          <OrdensProducao
+            produtos={produtos}
+            unidades={unidades}
+            funcionarios={funcionarios}
+            funcionarioAtual={funcionarioAtual}
+            ordemProduto={ordemProduto}
+            setOrdemProduto={setOrdemProduto}
+            ordemQuantidade={ordemQuantidade}
+            setOrdemQuantidade={setOrdemQuantidade}
+            ordemUnidade={ordemUnidade}
+            setOrdemUnidade={setOrdemUnidade}
+            ordemData={ordemData}
+            setOrdemData={setOrdemData}
+            ordemObservacao={ordemObservacao}
+            setOrdemObservacao={setOrdemObservacao}
+            criarOrdem={criarOrdem}
+            ordensProducao={ordensHoje}
+            atualizarStatusOrdem={atualizarStatusOrdem}
+            excluirOrdem={excluirOrdem}
+          />
+        </>
       )}
     </div>
   );
