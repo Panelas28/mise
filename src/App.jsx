@@ -9,13 +9,7 @@ import ProducaoHoje from "./components/ProducaoHoje";
 import Produtos from "./components/Produtos";
 import Temperaturas from "./components/Temperaturas";
 
-import {
-  equipamentosPadrao,
-  funcionariosPadrao,
-  produtosPadrao,
-  setores,
-  unidades,
-} from "./data/constants";
+import { setores, unidades } from "./data/constants";
 
 import { baixarCSV, campoCSV } from "./utils/csv";
 import { formatarData, formatarDataHora, hojeInput } from "./utils/datas";
@@ -39,10 +33,7 @@ function App() {
   const [quantidadeEtiquetas, setQuantidadeEtiquetas] = useState(1);
   const [dataProducao, setDataProducao] = useState(hojeInput());
 
-  const [funcionarios, setFuncionarios] = useState(() => {
-    const salvo = localStorage.getItem("funcionarios");
-    return salvo ? JSON.parse(salvo) : funcionariosPadrao;
-  });
+  const [funcionarios, setFuncionarios] = useState([]);
 
   const [funcionarioAtual, setFuncionarioAtual] = useState(() => {
     return localStorage.getItem("funcionarioAtual") || "Cris";
@@ -50,10 +41,7 @@ function App() {
 
   const [novoFuncionario, setNovoFuncionario] = useState("");
 
-  const [produtos, setProdutos] = useState(() => {
-    const salvo = localStorage.getItem("produtos");
-    return salvo ? JSON.parse(salvo) : produtosPadrao;
-  });
+  const [produtos, setProdutos] = useState({});
 
   const [novoProduto, setNovoProduto] = useState("");
   const [novoSetor, setNovoSetor] = useState("Produção");
@@ -66,36 +54,120 @@ function App() {
   const [editValidade, setEditValidade] = useState(1);
   const [editUnidade, setEditUnidade] = useState("kg");
 
-  const [equipamentos, setEquipamentos] = useState(() => {
-    const salvo = localStorage.getItem("equipamentosTemperatura");
-    return salvo ? JSON.parse(salvo) : equipamentosPadrao;
-  });
+  const [equipamentos, setEquipamentos] = useState([]);
 
   const [novoEquipamento, setNovoEquipamento] = useState("");
   const [equipamentoTemperatura, setEquipamentoTemperatura] = useState("Geladeira 1");
   const [temperatura, setTemperatura] = useState("");
 
-  const [historicoTemperaturas, setHistoricoTemperaturas] = useState(() => {
-    const salvo = localStorage.getItem("historicoTemperaturas");
-    return salvo ? JSON.parse(salvo) : [];
-  });
+  const [historicoTemperaturas, setHistoricoTemperaturas] = useState([]);
 
-  useEffect(() => {
-  async function testar() {
+  async function carregarProdutos() {
     const { data, error } = await supabase
       .from("produtos")
-      .select("*");
+      .select("*")
+      .eq("ativo", true)
+      .order("nome", { ascending: true });
 
-    console.log(data);
-    console.log(error);
+    if (error) {
+      console.error(error);
+      alert("Erro ao carregar produtos do Supabase.");
+      return;
+    }
+
+    const produtosFormatados = {};
+
+    data.forEach((item) => {
+      produtosFormatados[item.nome] = {
+        validade: item.validade,
+        setor: item.setor,
+        unidade: item.unidade || "kg",
+      };
+    });
+
+    setProdutos(produtosFormatados);
+
+    const primeiroProduto = Object.keys(produtosFormatados)[0];
+
+    if (primeiroProduto && !produtosFormatados[produto]) {
+      setProduto(primeiroProduto);
+    }
   }
 
-  testar();
-}, []);
+
+  async function carregarFuncionarios() {
+    const { data, error } = await supabase
+      .from("funcionarios")
+      .select("*")
+      .eq("ativo", true)
+      .order("nome", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao carregar funcionários do Supabase.");
+      return;
+    }
+
+    const nomes = data.map((item) => item.nome);
+
+    setFuncionarios(nomes);
+
+    if (nomes.length > 0 && !nomes.includes(funcionarioAtual)) {
+      setFuncionarioAtual(nomes[0]);
+    }
+  }
+
+  async function carregarEquipamentos() {
+    const { data, error } = await supabase
+      .from("equipamentos")
+      .select("*")
+      .eq("ativo", true)
+      .order("nome", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao carregar equipamentos do Supabase.");
+      return;
+    }
+
+    const nomes = data.map((item) => item.nome);
+
+    setEquipamentos(nomes);
+
+    if (nomes.length > 0 && !nomes.includes(equipamentoTemperatura)) {
+      setEquipamentoTemperatura(nomes[0]);
+    }
+  }
+
+  async function carregarTemperaturas() {
+    const { data, error } = await supabase
+      .from("temperaturas")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao carregar temperaturas do Supabase.");
+      return;
+    }
+
+    const temperaturasFormatadas = data.map((item) => ({
+      id: item.id,
+      dataHora: formatarDataHora(new Date(item.created_at)),
+      equipamento: item.equipamento,
+      temperatura: item.temperatura,
+      responsavel: item.responsavel,
+      observacao: item.observacao || "",
+    }));
+
+    setHistoricoTemperaturas(temperaturasFormatadas);
+  }
 
   useEffect(() => {
-    const historicoSalvo = localStorage.getItem("historicoEtiquetas");
-    if (historicoSalvo) setHistorico(JSON.parse(historicoSalvo));
+    carregarProdutos();
+    carregarFuncionarios();
+    carregarEquipamentos();
+    carregarTemperaturas();
   }, []);
 
   useEffect(() => {
@@ -131,24 +203,8 @@ function App() {
 }, []);
 
   useEffect(() => {
-    localStorage.setItem("produtos", JSON.stringify(produtos));
-  }, [produtos]);
-
-  useEffect(() => {
-    localStorage.setItem("funcionarios", JSON.stringify(funcionarios));
-  }, [funcionarios]);
-
-  useEffect(() => {
     localStorage.setItem("funcionarioAtual", funcionarioAtual);
   }, [funcionarioAtual]);
-
-  useEffect(() => {
-    localStorage.setItem("equipamentosTemperatura", JSON.stringify(equipamentos));
-  }, [equipamentos]);
-
-  useEffect(() => {
-    localStorage.setItem("historicoTemperaturas", JSON.stringify(historicoTemperaturas));
-  }, [historicoTemperaturas]);
 
   useEffect(() => {
     if (produtos[produto]?.unidade) {
@@ -172,18 +228,32 @@ function App() {
     historico.filter((item) => item.producao === hoje)
   );
 
-  function adicionarFuncionario() {
+  async function adicionarFuncionario() {
     const nome = novoFuncionario.trim();
 
     if (!nome) return alert("Digite o nome do funcionário.");
     if (funcionarios.includes(nome)) return alert("Funcionário já cadastrado.");
 
-    setFuncionarios([...funcionarios, nome]);
+    const { error } = await supabase
+      .from("funcionarios")
+      .insert({
+        nome,
+        ativo: true,
+      });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao cadastrar funcionário no Supabase.");
+      return;
+    }
+
+    await carregarFuncionarios();
+
     setFuncionarioAtual(nome);
     setNovoFuncionario("");
   }
 
-  function removerFuncionario(nome) {
+  async function removerFuncionario(nome) {
     if (funcionarios.length <= 1) {
       return alert("É necessário manter pelo menos um funcionário.");
     }
@@ -191,29 +261,48 @@ function App() {
     const confirmar = confirm(`Remover o funcionário "${nome}"?`);
     if (!confirmar) return;
 
-    const atualizados = funcionarios.filter((item) => item !== nome);
+    const { error } = await supabase
+      .from("funcionarios")
+      .update({ ativo: false })
+      .eq("nome", nome);
 
-    setFuncionarios(atualizados);
+    if (error) {
+      console.error(error);
+      alert("Erro ao remover funcionário no Supabase.");
+      return;
+    }
+
+    await carregarFuncionarios();
 
     if (funcionarioAtual === nome) {
-      setFuncionarioAtual(atualizados[0]);
+      const atualizados = funcionarios.filter((item) => item !== nome);
+      setFuncionarioAtual(atualizados[0] || "");
     }
   }
 
-  function cadastrarProduto() {
+  async function cadastrarProduto() {
     if (!novoProduto.trim()) return alert("Digite o nome do produto.");
     if (Number(novaValidade) <= 0) return alert("A validade precisa ser maior que zero.");
 
     const nome = novoProduto.trim();
 
-    setProdutos({
-      ...produtos,
-      [nome]: {
-        validade: Number(novaValidade),
+    const { error } = await supabase
+      .from("produtos")
+      .insert({
+        nome,
         setor: novoSetor,
+        validade: Number(novaValidade),
         unidade: novaUnidade,
-      },
-    });
+        ativo: true,
+      });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao cadastrar produto no Supabase.");
+      return;
+    }
+
+    await carregarProdutos();
 
     setProduto(nome);
     setNovoProduto("");
@@ -229,38 +318,52 @@ function App() {
     setEditUnidade(produtos[nome].unidade || "kg");
   }
 
-  function salvarEdicaoProduto() {
+  async function salvarEdicaoProduto() {
     if (!editNome.trim()) return alert("Nome inválido.");
     if (Number(editValidade) <= 0) return alert("Validade inválida.");
 
-    const novosProdutos = { ...produtos };
+    const { error } = await supabase
+      .from("produtos")
+      .update({
+        nome: editNome.trim(),
+        setor: editSetor,
+        validade: Number(editValidade),
+        unidade: editUnidade,
+      })
+      .eq("nome", produtoEditando);
 
-    delete novosProdutos[produtoEditando];
+    if (error) {
+      console.error(error);
+      alert("Erro ao editar produto no Supabase.");
+      return;
+    }
 
-    novosProdutos[editNome.trim()] = {
-      setor: editSetor,
-      validade: Number(editValidade),
-      unidade: editUnidade,
-    };
+    await carregarProdutos();
 
-    setProdutos(novosProdutos);
     setProduto(editNome.trim());
     setProdutoEditando("");
   }
 
-  function excluirProduto(nome) {
+  async function excluirProduto(nome) {
     const confirmar = confirm(`Deseja excluir o produto "${nome}"?`);
     if (!confirmar) return;
 
-    const novosProdutos = { ...produtos };
-    delete novosProdutos[nome];
+    const { error } = await supabase
+      .from("produtos")
+      .update({ ativo: false })
+      .eq("nome", nome);
 
-    setProdutos(novosProdutos);
+    if (error) {
+      console.error(error);
+      alert("Erro ao excluir produto no Supabase.");
+      return;
+    }
 
-    const primeiroProduto = Object.keys(novosProdutos)[0];
+    await carregarProdutos();
 
-    if (produto === nome && primeiroProduto) {
-      setProduto(primeiroProduto);
+    if (produto === nome) {
+      const produtosRestantes = Object.keys(produtos).filter((item) => item !== nome);
+      setProduto(produtosRestantes[0] || "");
     }
   }
 
@@ -270,6 +373,11 @@ function App() {
       : new Date();
 
     const produtoSelecionado = produtos[produto];
+
+    if (!produtoSelecionado) {
+      alert("Produto ainda não carregado.");
+      return null;
+    }
 
     const validade = new Date(dataBase);
     validade.setDate(dataBase.getDate() + produtoSelecionado.validade);
@@ -301,7 +409,9 @@ function App() {
   const novasEtiquetas = Array.from(
     { length: Number(quantidadeEtiquetas) },
     (_, index) => montarEtiqueta(index + 1)
-  );
+  ).filter(Boolean);
+
+  if (novasEtiquetas.length === 0) return;
 
   setEtiqueta(novasEtiquetas[0]);
   setEtiquetasParaImprimir(novasEtiquetas);
@@ -440,31 +550,52 @@ function App() {
     setTimeout(() => window.print(), 150);
   }
 
-  function adicionarEquipamento() {
+  async function adicionarEquipamento() {
     const nome = novoEquipamento.trim();
 
     if (!nome) return alert("Digite o nome do equipamento.");
     if (equipamentos.includes(nome)) return alert("Equipamento já cadastrado.");
 
-    setEquipamentos([...equipamentos, nome]);
+    const { error } = await supabase
+      .from("equipamentos")
+      .insert({
+        nome,
+        ativo: true,
+      });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao cadastrar equipamento no Supabase.");
+      return;
+    }
+
+    await carregarEquipamentos();
+
     setEquipamentoTemperatura(nome);
     setNovoEquipamento("");
   }
 
-  function registrarTemperatura() {
+  async function registrarTemperatura() {
     if (temperatura === "") {
       return alert("Digite a temperatura.");
     }
 
-    const novoRegistro = {
-      id: Date.now(),
-      dataHora: formatarDataHora(new Date()),
-      equipamento: equipamentoTemperatura,
-      temperatura: Number(temperatura),
-      responsavel: funcionarioAtual,
-    };
+    const { error } = await supabase
+      .from("temperaturas")
+      .insert({
+        equipamento: equipamentoTemperatura,
+        temperatura: Number(temperatura),
+        responsavel: funcionarioAtual,
+      });
 
-    setHistoricoTemperaturas([novoRegistro, ...historicoTemperaturas]);
+    if (error) {
+      console.error(error);
+      alert("Erro ao registrar temperatura no Supabase.");
+      return;
+    }
+
+    await carregarTemperaturas();
+
     setTemperatura("");
   }
 
@@ -490,13 +621,22 @@ function App() {
     baixarCSV("temperaturas_stratta.csv", cabecalho, linhas);
   }
 
-  function limparTemperaturas() {
+  async function limparTemperaturas() {
     const confirmar = confirm("Tem certeza que deseja apagar o histórico de temperaturas?");
-
     if (!confirmar) return;
 
+    const { error } = await supabase
+      .from("temperaturas")
+      .delete()
+      .neq("id", 0);
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao limpar temperaturas no Supabase.");
+      return;
+    }
+
     setHistoricoTemperaturas([]);
-    localStorage.removeItem("historicoTemperaturas");
   }
 
   const historicoFiltrado = historico.filter((item) => {
