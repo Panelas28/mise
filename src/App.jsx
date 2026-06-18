@@ -9,6 +9,9 @@ import ProducaoHoje from "./components/ProducaoHoje";
 import Produtos from "./components/Produtos";
 import Temperaturas from "./components/Temperaturas";
 import OrdensProducao from "./components/OrdensProducao";
+import Estoque from "./components/Estoque";
+import FichasTecnicas from "./components/FichasTecnicas";
+import Checklist from "./components/Checklist";
 
 import { setores, unidades } from "./data/constants";
 
@@ -70,6 +73,44 @@ function App() {
   const [ordemUnidade, setOrdemUnidade] = useState("kg");
   const [ordemData, setOrdemData] = useState(hojeInput());
   const [ordemObservacao, setOrdemObservacao] = useState("");
+
+  const [estoqueItens, setEstoqueItens] = useState([]);
+  const [estoqueMovimentos, setEstoqueMovimentos] = useState([]);
+  const [novoItemEstoque, setNovoItemEstoque] = useState("");
+  const [novaCategoriaEstoque, setNovaCategoriaEstoque] = useState("");
+  const [novaUnidadeEstoque, setNovaUnidadeEstoque] = useState("kg");
+  const [novoCustoCompra, setNovoCustoCompra] = useState(0);
+  const [novoEstoqueMinimo, setNovoEstoqueMinimo] = useState(0);
+  const [movimentoItemId, setMovimentoItemId] = useState("");
+  const [movimentoTipo, setMovimentoTipo] = useState("Entrada");
+  const [movimentoQuantidade, setMovimentoQuantidade] = useState(1);
+  const [movimentoMotivo, setMovimentoMotivo] = useState("");
+
+  const [fichasTecnicas, setFichasTecnicas] = useState([]);
+  const [fichaIngredientes, setFichaIngredientes] = useState([]);
+  const [novaFichaNome, setNovaFichaNome] = useState("");
+  const [fichaRendimento, setFichaRendimento] = useState(1);
+  const [fichaUnidadeRendimento, setFichaUnidadeRendimento] = useState("porções");
+  const [fichaPrecoVenda, setFichaPrecoVenda] = useState(0);
+  const [fichaSelecionadaId, setFichaSelecionadaId] = useState("");
+  const [ingredienteItemId, setIngredienteItemId] = useState("");
+  const [ingredienteQuantidade, setIngredienteQuantidade] = useState(1);
+  const [ingredienteUnidade, setIngredienteUnidade] = useState("kg");
+
+  const [fichaSubfichas, setFichaSubfichas] = useState([]);
+  const [subfichaSelecionadaId, setSubfichaSelecionadaId] = useState("");
+  const [subfichaQuantidade, setSubfichaQuantidade] = useState(1);
+  const [subfichaUnidade, setSubfichaUnidade] = useState("L");
+
+  const [checklistModelos, setChecklistModelos] = useState([]);
+  const [checklistItens, setChecklistItens] = useState([]);
+  const [checklistExecucoes, setChecklistExecucoes] = useState([]);
+  const [checklistRespostas, setChecklistRespostas] = useState([]);
+  const [novoModeloChecklist, setNovoModeloChecklist] = useState("");
+  const [novaCategoriaChecklist, setNovaCategoriaChecklist] = useState("Abertura");
+  const [modeloChecklistSelecionadoId, setModeloChecklistSelecionadoId] = useState("");
+  const [novoItemChecklist, setNovoItemChecklist] = useState("");
+
 
   async function carregarProdutos() {
     const { data, error } = await supabase
@@ -188,12 +229,166 @@ function App() {
     setOrdensProducao(data);
   }
 
+
+  async function carregarEstoque() {
+    const { data: itens, error: erroItens } = await supabase
+      .from("estoque_itens")
+      .select("*")
+      .eq("ativo", true)
+      .order("nome", { ascending: true });
+
+    if (erroItens) {
+      console.error(erroItens);
+      alert("Erro ao carregar itens de estoque.");
+      return;
+    }
+
+    const { data: movimentos, error: erroMovimentos } = await supabase
+      .from("estoque_movimentos")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (erroMovimentos) {
+      console.error(erroMovimentos);
+      alert("Erro ao carregar movimentos de estoque.");
+      return;
+    }
+
+    setEstoqueItens(itens || []);
+    setEstoqueMovimentos(movimentos || []);
+
+    if (itens?.length && !movimentoItemId) {
+      setMovimentoItemId(String(itens[0].id));
+    }
+
+    if (itens?.length && !ingredienteItemId) {
+      setIngredienteItemId(String(itens[0].id));
+      setIngredienteUnidade(itens[0].unidade || "kg");
+    }
+  }
+
+  async function carregarFichasTecnicas() {
+    const { data: fichas, error: erroFichas } = await supabase
+      .from("fichas_tecnicas")
+      .select("*")
+      .eq("ativo", true)
+      .order("nome", { ascending: true });
+
+    if (erroFichas) {
+      console.error(erroFichas);
+      alert("Erro ao carregar fichas técnicas.");
+      return;
+    }
+
+    const { data: ingredientes, error: erroIngredientes } = await supabase
+      .from("ficha_ingredientes")
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (erroIngredientes) {
+      console.error(erroIngredientes);
+      alert("Erro ao carregar ingredientes das fichas.");
+      return;
+    }
+
+    const { data: subfichas, error: erroSubfichas } = await supabase
+      .from("ficha_subfichas")
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (erroSubfichas) {
+      console.error(erroSubfichas);
+      alert("Erro ao carregar subfichas.");
+      return;
+    }
+
+    setFichasTecnicas(fichas || []);
+    setFichaIngredientes(ingredientes || []);
+    setFichaSubfichas(subfichas || []);
+
+    if (fichas?.length && !fichaSelecionadaId) {
+      setFichaSelecionadaId(String(fichas[0].id));
+    }
+
+    if (fichas?.length && !subfichaSelecionadaId) {
+      const fichaPrincipalInicial = String(fichas[0].id);
+
+      const primeiraSubfichaValida = fichas.find((item) => {
+        return String(item.id) !== fichaPrincipalInicial;
+      });
+
+      if (primeiraSubfichaValida) {
+        setSubfichaSelecionadaId(String(primeiraSubfichaValida.id));
+      }
+    }
+  }
+
+  async function carregarChecklist() {
+    const { data: modelos, error: erroModelos } = await supabase
+      .from("checklist_modelos")
+      .select("*")
+      .eq("ativo", true)
+      .order("created_at", { ascending: false });
+
+    if (erroModelos) {
+      console.error(erroModelos);
+      alert("Erro ao carregar modelos de checklist.");
+      return;
+    }
+
+    const { data: itens, error: erroItens } = await supabase
+      .from("checklist_itens")
+      .select("*")
+      .eq("ativo", true)
+      .order("created_at", { ascending: true });
+
+    if (erroItens) {
+      console.error(erroItens);
+      alert("Erro ao carregar itens do checklist.");
+      return;
+    }
+
+    const { data: execucoes, error: erroExecucoes } = await supabase
+      .from("checklist_execucoes")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (erroExecucoes) {
+      console.error(erroExecucoes);
+      alert("Erro ao carregar execuções do checklist.");
+      return;
+    }
+
+    const { data: respostas, error: erroRespostas } = await supabase
+      .from("checklist_respostas")
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (erroRespostas) {
+      console.error(erroRespostas);
+      alert("Erro ao carregar respostas do checklist.");
+      return;
+    }
+
+    setChecklistModelos(modelos || []);
+    setChecklistItens(itens || []);
+    setChecklistExecucoes(execucoes || []);
+    setChecklistRespostas(respostas || []);
+
+    if (modelos?.length && !modeloChecklistSelecionadoId) {
+      setModeloChecklistSelecionadoId(String(modelos[0].id));
+    }
+  }
+
   useEffect(() => {
     carregarProdutos();
     carregarFuncionarios();
     carregarEquipamentos();
     carregarTemperaturas();
     carregarOrdens();
+    carregarEstoque();
+    carregarFichasTecnicas();
+    carregarChecklist();
   }, []);
 
   useEffect(() => {
@@ -252,6 +447,47 @@ function App() {
       setOrdemUnidade(produtos[ordemProduto].unidade);
     }
   }, [ordemProduto, produtos]);
+
+  useEffect(() => {
+    const item = estoqueItens.find((estoqueItem) => String(estoqueItem.id) === String(movimentoItemId));
+
+    if (item) {
+      setNovaUnidadeEstoque(item.unidade || "kg");
+    }
+  }, [movimentoItemId, estoqueItens]);
+
+  useEffect(() => {
+    const item = estoqueItens.find((estoqueItem) => String(estoqueItem.id) === String(ingredienteItemId));
+
+    if (item) {
+      setIngredienteUnidade(item.unidade || "kg");
+    }
+  }, [ingredienteItemId, estoqueItens]);
+
+  useEffect(() => {
+    const ficha = fichasTecnicas.find((item) => {
+      return String(item.id) === String(subfichaSelecionadaId);
+    });
+
+    if (ficha?.unidade_rendimento) {
+      setSubfichaUnidade(ficha.unidade_rendimento);
+    }
+  }, [subfichaSelecionadaId, fichasTecnicas]);
+
+  useEffect(() => {
+    if (!fichaSelecionadaId) return;
+
+    const primeiraSubfichaValida = fichasTecnicas.find((item) => {
+      return String(item.id) !== String(fichaSelecionadaId);
+    });
+
+    if (
+      primeiraSubfichaValida &&
+      String(subfichaSelecionadaId) === String(fichaSelecionadaId)
+    ) {
+      setSubfichaSelecionadaId(String(primeiraSubfichaValida.id));
+    }
+  }, [fichaSelecionadaId, fichasTecnicas, subfichaSelecionadaId]);
 
   const hoje = formatarData(new Date());
 
@@ -743,6 +979,394 @@ function App() {
     await carregarOrdens();
   }
 
+
+  function calcularSaldoEstoque(itemId) {
+    return estoqueMovimentos.reduce((saldo, mov) => {
+      if (String(mov.item_id) !== String(itemId)) return saldo;
+
+      const quantidadeMovimento = Number(mov.quantidade || 0);
+
+      if (mov.tipo === "Entrada") return saldo + quantidadeMovimento;
+      if (mov.tipo === "Saída") return saldo - quantidadeMovimento;
+      if (mov.tipo === "Ajuste") return quantidadeMovimento;
+
+      return saldo;
+    }, 0);
+  }
+
+  async function criarItemEstoque() {
+    const nome = novoItemEstoque.trim();
+
+    if (!nome) return alert("Digite o nome do item.");
+    if (!novaUnidadeEstoque.trim()) return alert("Digite a unidade.");
+
+    const { error } = await supabase
+      .from("estoque_itens")
+      .insert({
+        nome,
+        categoria: novaCategoriaEstoque,
+        unidade: novaUnidadeEstoque,
+        custo_compra: Number(novoCustoCompra) || 0,
+        estoque_minimo: Number(novoEstoqueMinimo) || 0,
+        ativo: true,
+      });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao cadastrar item de estoque.");
+      return;
+    }
+
+    await carregarEstoque();
+
+    setNovoItemEstoque("");
+    setNovaCategoriaEstoque("");
+    setNovoCustoCompra(0);
+    setNovoEstoqueMinimo(0);
+  }
+
+  async function registrarMovimentoEstoque() {
+    if (!movimentoItemId) return alert("Selecione um item.");
+    if (Number(movimentoQuantidade) <= 0) {
+      return alert("A quantidade precisa ser maior que zero.");
+    }
+
+    const item = estoqueItens.find((estoqueItem) => String(estoqueItem.id) === String(movimentoItemId));
+
+    if (!item) return alert("Item não encontrado.");
+
+    const { error } = await supabase
+      .from("estoque_movimentos")
+      .insert({
+        item_id: item.id,
+        item_nome: item.nome,
+        tipo: movimentoTipo,
+        quantidade: Number(movimentoQuantidade),
+        unidade: item.unidade,
+        motivo: movimentoMotivo,
+        responsavel: funcionarioAtual,
+      });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao registrar movimento de estoque.");
+      return;
+    }
+
+    await carregarEstoque();
+
+    setMovimentoQuantidade(1);
+    setMovimentoMotivo("");
+  }
+
+  async function criarFichaTecnica() {
+    const nome = novaFichaNome.trim();
+
+    if (!nome) return alert("Digite o nome da ficha.");
+    if (Number(fichaRendimento) <= 0) return alert("O rendimento precisa ser maior que zero.");
+
+    const { error } = await supabase
+      .from("fichas_tecnicas")
+      .insert({
+        nome,
+        rendimento: Number(fichaRendimento),
+        unidade_rendimento: fichaUnidadeRendimento,
+        preco_venda: Number(fichaPrecoVenda) || 0,
+        ativo: true,
+      });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao criar ficha técnica.");
+      return;
+    }
+
+    await carregarFichasTecnicas();
+
+    setNovaFichaNome("");
+    setFichaRendimento(1);
+    setFichaPrecoVenda(0);
+  }
+
+  async function adicionarIngredienteFicha() {
+    if (!fichaSelecionadaId) return alert("Selecione uma ficha.");
+    if (!ingredienteItemId) return alert("Selecione um item de estoque.");
+    if (Number(ingredienteQuantidade) <= 0) {
+      return alert("A quantidade precisa ser maior que zero.");
+    }
+
+    const item = estoqueItens.find((estoqueItem) => String(estoqueItem.id) === String(ingredienteItemId));
+
+    if (!item) return alert("Item de estoque não encontrado.");
+
+    const { error } = await supabase
+      .from("ficha_ingredientes")
+      .insert({
+        ficha_id: Number(fichaSelecionadaId),
+        item_id: item.id,
+        item_nome: item.nome,
+        quantidade: Number(ingredienteQuantidade),
+        unidade: ingredienteUnidade,
+        custo_unitario: Number(item.custo_compra || 0),
+      });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao adicionar ingrediente na ficha.");
+      return;
+    }
+
+    await carregarFichasTecnicas();
+
+    setIngredienteQuantidade(1);
+  }
+
+  async function adicionarSubfichaNaFicha() {
+    if (!fichaSelecionadaId) return alert("Selecione uma ficha principal.");
+    if (!subfichaSelecionadaId) return alert("Selecione uma subficha.");
+
+    if (String(fichaSelecionadaId) === String(subfichaSelecionadaId)) {
+      return alert("Uma ficha não pode usar ela mesma como subficha.");
+    }
+
+    if (Number(subfichaQuantidade) <= 0) {
+      return alert("A quantidade da subficha precisa ser maior que zero.");
+    }
+
+    const subficha = fichasTecnicas.find((item) => {
+      return String(item.id) === String(subfichaSelecionadaId);
+    });
+
+    if (!subficha) return alert("Subficha não encontrada.");
+
+    const { error } = await supabase
+      .from("ficha_subfichas")
+      .insert({
+        ficha_id: Number(fichaSelecionadaId),
+        subficha_id: Number(subfichaSelecionadaId),
+        subficha_nome: subficha.nome,
+        quantidade: Number(subfichaQuantidade),
+        unidade: subfichaUnidade,
+      });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao adicionar subficha.");
+      return;
+    }
+
+    await carregarFichasTecnicas();
+
+    setSubfichaQuantidade(1);
+  }
+
+  async function excluirFichaTecnica(id) {
+    const confirmar = confirm("Deseja excluir esta ficha técnica?");
+    if (!confirmar) return;
+
+    const { error } = await supabase
+      .from("fichas_tecnicas")
+      .update({ ativo: false })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao excluir ficha técnica.");
+      return;
+    }
+
+    await carregarFichasTecnicas();
+  }
+
+  function normalizarUnidade(unidade) {
+    return String(unidade || "").trim().toLowerCase();
+  }
+
+  function converterParaUnidadeCompra(quantidade, unidadeUsada, unidadeCompra) {
+    const qtd = Number(quantidade || 0);
+    const usada = normalizarUnidade(unidadeUsada);
+    const compra = normalizarUnidade(unidadeCompra);
+
+    if (usada === compra) return qtd;
+
+    if (usada === "g" && compra === "kg") return qtd / 1000;
+    if (usada === "kg" && compra === "g") return qtd * 1000;
+
+    if (usada === "ml" && (compra === "l" || compra === "lt")) return qtd / 1000;
+    if ((usada === "l" || usada === "lt") && compra === "ml") return qtd * 1000;
+
+    return qtd;
+  }
+
+  function calcularCustoIngredienteFicha(item) {
+    const itemEstoque = estoqueItens.find((estoqueItem) => {
+      return String(estoqueItem.id) === String(item.item_id);
+    });
+
+    const unidadeCompra = itemEstoque?.unidade || item.unidade;
+    const quantidadeConvertida = converterParaUnidadeCompra(
+      item.quantidade,
+      item.unidade,
+      unidadeCompra
+    );
+
+    return quantidadeConvertida * Number(item.custo_unitario || 0);
+  }
+
+  function calcularCustoSubficha(item, visitadas = new Set()) {
+    const subficha = fichasTecnicas.find((ficha) => {
+      return String(ficha.id) === String(item.subficha_id);
+    });
+
+    if (!subficha) return 0;
+
+    const custoTotalSubficha = calcularCustoFicha(subficha.id, visitadas);
+    const rendimento = Number(subficha.rendimento || 0);
+
+    if (rendimento <= 0) return 0;
+
+    const quantidadeConvertida = converterParaUnidadeCompra(
+      item.quantidade,
+      item.unidade,
+      subficha.unidade_rendimento
+    );
+
+    const custoPorUnidadeRendimento = custoTotalSubficha / rendimento;
+
+    return quantidadeConvertida * custoPorUnidadeRendimento;
+  }
+
+  function calcularCustoFicha(fichaId, visitadas = new Set()) {
+    const id = String(fichaId);
+
+    if (visitadas.has(id)) return 0;
+
+    const proximasVisitadas = new Set(visitadas);
+    proximasVisitadas.add(id);
+
+    const custoIngredientes = fichaIngredientes
+      .filter((item) => String(item.ficha_id) === id)
+      .reduce((total, item) => {
+        return total + calcularCustoIngredienteFicha(item);
+      }, 0);
+
+    const custoSubfichas = fichaSubfichas
+      .filter((item) => String(item.ficha_id) === id)
+      .reduce((total, item) => {
+        return total + calcularCustoSubficha(item, proximasVisitadas);
+      }, 0);
+
+    return custoIngredientes + custoSubfichas;
+  }
+
+  async function criarModeloChecklist() {
+    const nome = novoModeloChecklist.trim();
+
+    if (!nome) return alert("Digite o nome do checklist.");
+
+    const { error } = await supabase
+      .from("checklist_modelos")
+      .insert({
+        nome,
+        categoria: novaCategoriaChecklist,
+        ativo: true,
+      });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao criar modelo de checklist.");
+      return;
+    }
+
+    await carregarChecklist();
+
+    setNovoModeloChecklist("");
+  }
+
+  async function adicionarItemChecklist() {
+    if (!modeloChecklistSelecionadoId) return alert("Selecione um modelo.");
+    if (!novoItemChecklist.trim()) return alert("Digite o item do checklist.");
+
+    const { error } = await supabase
+      .from("checklist_itens")
+      .insert({
+        modelo_id: Number(modeloChecklistSelecionadoId),
+        descricao: novoItemChecklist.trim(),
+        ativo: true,
+      });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao adicionar item no checklist.");
+      return;
+    }
+
+    await carregarChecklist();
+
+    setNovoItemChecklist("");
+  }
+
+  async function executarChecklist() {
+    if (!modeloChecklistSelecionadoId) return alert("Selecione um modelo.");
+
+    const modelo = checklistModelos.find((item) => String(item.id) === String(modeloChecklistSelecionadoId));
+    if (!modelo) return alert("Modelo não encontrado.");
+
+    const itensDoModelo = checklistItens.filter((item) => String(item.modelo_id) === String(modeloChecklistSelecionadoId));
+    if (itensDoModelo.length === 0) return alert("Este modelo ainda não tem itens.");
+
+    const { data: execucao, error: erroExecucao } = await supabase
+      .from("checklist_execucoes")
+      .insert({
+        modelo_id: modelo.id,
+        modelo_nome: modelo.nome,
+        responsavel: funcionarioAtual,
+        data_execucao: hojeInput(),
+      })
+      .select()
+      .single();
+
+    if (erroExecucao) {
+      console.error(erroExecucao);
+      alert("Erro ao iniciar checklist.");
+      return;
+    }
+
+    const respostas = itensDoModelo.map((item) => ({
+      execucao_id: execucao.id,
+      item_id: item.id,
+      descricao: item.descricao,
+      concluido: false,
+    }));
+
+    const { error: erroRespostas } = await supabase
+      .from("checklist_respostas")
+      .insert(respostas);
+
+    if (erroRespostas) {
+      console.error(erroRespostas);
+      alert("Erro ao criar respostas do checklist.");
+      return;
+    }
+
+    await carregarChecklist();
+  }
+
+  async function alternarRespostaChecklist(id, concluido) {
+    const { error } = await supabase
+      .from("checklist_respostas")
+      .update({ concluido })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao atualizar checklist.");
+      return;
+    }
+
+    await carregarChecklist();
+  }
+
   const historicoFiltrado = historico.filter((item) => {
     const termo = busca.toLowerCase();
     const status = getStatus(item.validade);
@@ -882,6 +1506,9 @@ function App() {
         <button onClick={() => setAba("produtos")}>Produtos</button>
         <button onClick={() => setAba("temperaturas")}>Temperaturas</button>
         <button onClick={() => setAba("ordens")}>Ordens</button>
+        <button onClick={() => setAba("estoque")}>Estoque</button>
+        <button onClick={() => setAba("fichas")}>Fichas Técnicas</button>
+        <button onClick={() => setAba("checklist")}>Checklist</button>
       </nav>
 
       <LoginResponsavel
@@ -1057,6 +1684,95 @@ function App() {
             excluirOrdem={excluirOrdem}
           />
         </>
+      )}
+
+      {aba === "estoque" && (
+        <Estoque
+          estoqueItens={estoqueItens}
+          estoqueMovimentos={estoqueMovimentos}
+          novoItemEstoque={novoItemEstoque}
+          setNovoItemEstoque={setNovoItemEstoque}
+          novaCategoriaEstoque={novaCategoriaEstoque}
+          setNovaCategoriaEstoque={setNovaCategoriaEstoque}
+          novaUnidadeEstoque={novaUnidadeEstoque}
+          setNovaUnidadeEstoque={setNovaUnidadeEstoque}
+          novoCustoCompra={novoCustoCompra}
+          setNovoCustoCompra={setNovoCustoCompra}
+          novoEstoqueMinimo={novoEstoqueMinimo}
+          setNovoEstoqueMinimo={setNovoEstoqueMinimo}
+          criarItemEstoque={criarItemEstoque}
+          movimentoItemId={movimentoItemId}
+          setMovimentoItemId={setMovimentoItemId}
+          movimentoTipo={movimentoTipo}
+          setMovimentoTipo={setMovimentoTipo}
+          movimentoQuantidade={movimentoQuantidade}
+          setMovimentoQuantidade={setMovimentoQuantidade}
+          movimentoMotivo={movimentoMotivo}
+          setMovimentoMotivo={setMovimentoMotivo}
+          registrarMovimentoEstoque={registrarMovimentoEstoque}
+          calcularSaldoEstoque={calcularSaldoEstoque}
+          unidades={unidades}
+        />
+      )}
+
+      {aba === "fichas" && (
+        <FichasTecnicas
+          estoqueItens={estoqueItens}
+          fichasTecnicas={fichasTecnicas}
+          fichaIngredientes={fichaIngredientes}
+          fichaSubfichas={fichaSubfichas}
+          novaFichaNome={novaFichaNome}
+          setNovaFichaNome={setNovaFichaNome}
+          fichaRendimento={fichaRendimento}
+          setFichaRendimento={setFichaRendimento}
+          fichaUnidadeRendimento={fichaUnidadeRendimento}
+          setFichaUnidadeRendimento={setFichaUnidadeRendimento}
+          fichaPrecoVenda={fichaPrecoVenda}
+          setFichaPrecoVenda={setFichaPrecoVenda}
+          criarFichaTecnica={criarFichaTecnica}
+          fichaSelecionadaId={fichaSelecionadaId}
+          setFichaSelecionadaId={setFichaSelecionadaId}
+          ingredienteItemId={ingredienteItemId}
+          setIngredienteItemId={setIngredienteItemId}
+          ingredienteQuantidade={ingredienteQuantidade}
+          setIngredienteQuantidade={setIngredienteQuantidade}
+          ingredienteUnidade={ingredienteUnidade}
+          setIngredienteUnidade={setIngredienteUnidade}
+          subfichaSelecionadaId={subfichaSelecionadaId}
+          setSubfichaSelecionadaId={setSubfichaSelecionadaId}
+          subfichaQuantidade={subfichaQuantidade}
+          setSubfichaQuantidade={setSubfichaQuantidade}
+          subfichaUnidade={subfichaUnidade}
+          setSubfichaUnidade={setSubfichaUnidade}
+          adicionarIngredienteFicha={adicionarIngredienteFicha}
+          adicionarSubfichaNaFicha={adicionarSubfichaNaFicha}
+          excluirFichaTecnica={excluirFichaTecnica}
+          calcularCustoFicha={calcularCustoFicha}
+          calcularCustoIngredienteFicha={calcularCustoIngredienteFicha}
+          calcularCustoSubficha={calcularCustoSubficha}
+          unidades={unidades}
+        />
+      )}
+
+      {aba === "checklist" && (
+        <Checklist
+          checklistModelos={checklistModelos}
+          checklistItens={checklistItens}
+          checklistExecucoes={checklistExecucoes}
+          checklistRespostas={checklistRespostas}
+          novoModeloChecklist={novoModeloChecklist}
+          setNovoModeloChecklist={setNovoModeloChecklist}
+          novaCategoriaChecklist={novaCategoriaChecklist}
+          setNovaCategoriaChecklist={setNovaCategoriaChecklist}
+          criarModeloChecklist={criarModeloChecklist}
+          modeloChecklistSelecionadoId={modeloChecklistSelecionadoId}
+          setModeloChecklistSelecionadoId={setModeloChecklistSelecionadoId}
+          novoItemChecklist={novoItemChecklist}
+          setNovoItemChecklist={setNovoItemChecklist}
+          adicionarItemChecklist={adicionarItemChecklist}
+          executarChecklist={executarChecklist}
+          alternarRespostaChecklist={alternarRespostaChecklist}
+        />
       )}
     </div>
   );
