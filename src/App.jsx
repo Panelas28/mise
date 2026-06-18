@@ -97,6 +97,11 @@ function App() {
   const [ingredienteQuantidade, setIngredienteQuantidade] = useState(1);
   const [ingredienteUnidade, setIngredienteUnidade] = useState("kg");
 
+  const [fichaSubfichas, setFichaSubfichas] = useState([]);
+  const [subfichaSelecionadaId, setSubfichaSelecionadaId] = useState("");
+  const [subfichaQuantidade, setSubfichaQuantidade] = useState(1);
+  const [subfichaUnidade, setSubfichaUnidade] = useState("L");
+
   const [checklistModelos, setChecklistModelos] = useState([]);
   const [checklistItens, setChecklistItens] = useState([]);
   const [checklistExecucoes, setChecklistExecucoes] = useState([]);
@@ -286,11 +291,35 @@ function App() {
       return;
     }
 
+    const { data: subfichas, error: erroSubfichas } = await supabase
+      .from("ficha_subfichas")
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (erroSubfichas) {
+      console.error(erroSubfichas);
+      alert("Erro ao carregar subfichas.");
+      return;
+    }
+
     setFichasTecnicas(fichas || []);
     setFichaIngredientes(ingredientes || []);
+    setFichaSubfichas(subfichas || []);
 
     if (fichas?.length && !fichaSelecionadaId) {
       setFichaSelecionadaId(String(fichas[0].id));
+    }
+
+    if (fichas?.length && !subfichaSelecionadaId) {
+      const fichaPrincipalInicial = String(fichas[0].id);
+
+      const primeiraSubfichaValida = fichas.find((item) => {
+        return String(item.id) !== fichaPrincipalInicial;
+      });
+
+      if (primeiraSubfichaValida) {
+        setSubfichaSelecionadaId(String(primeiraSubfichaValida.id));
+      }
     }
   }
 
@@ -434,6 +463,31 @@ function App() {
       setIngredienteUnidade(item.unidade || "kg");
     }
   }, [ingredienteItemId, estoqueItens]);
+
+  useEffect(() => {
+    const ficha = fichasTecnicas.find((item) => {
+      return String(item.id) === String(subfichaSelecionadaId);
+    });
+
+    if (ficha?.unidade_rendimento) {
+      setSubfichaUnidade(ficha.unidade_rendimento);
+    }
+  }, [subfichaSelecionadaId, fichasTecnicas]);
+
+  useEffect(() => {
+    if (!fichaSelecionadaId) return;
+
+    const primeiraSubfichaValida = fichasTecnicas.find((item) => {
+      return String(item.id) !== String(fichaSelecionadaId);
+    });
+
+    if (
+      primeiraSubfichaValida &&
+      String(subfichaSelecionadaId) === String(fichaSelecionadaId)
+    ) {
+      setSubfichaSelecionadaId(String(primeiraSubfichaValida.id));
+    }
+  }, [fichaSelecionadaId, fichasTecnicas, subfichaSelecionadaId]);
 
   const hoje = formatarData(new Date());
 
@@ -1067,6 +1121,45 @@ function App() {
     setIngredienteQuantidade(1);
   }
 
+  async function adicionarSubfichaNaFicha() {
+    if (!fichaSelecionadaId) return alert("Selecione uma ficha principal.");
+    if (!subfichaSelecionadaId) return alert("Selecione uma subficha.");
+
+    if (String(fichaSelecionadaId) === String(subfichaSelecionadaId)) {
+      return alert("Uma ficha não pode usar ela mesma como subficha.");
+    }
+
+    if (Number(subfichaQuantidade) <= 0) {
+      return alert("A quantidade da subficha precisa ser maior que zero.");
+    }
+
+    const subficha = fichasTecnicas.find((item) => {
+      return String(item.id) === String(subfichaSelecionadaId);
+    });
+
+    if (!subficha) return alert("Subficha não encontrada.");
+
+    const { error } = await supabase
+      .from("ficha_subfichas")
+      .insert({
+        ficha_id: Number(fichaSelecionadaId),
+        subficha_id: Number(subfichaSelecionadaId),
+        subficha_nome: subficha.nome,
+        quantidade: Number(subfichaQuantidade),
+        unidade: subfichaUnidade,
+      });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao adicionar subficha.");
+      return;
+    }
+
+    await carregarFichasTecnicas();
+
+    setSubfichaQuantidade(1);
+  }
+
   async function excluirFichaTecnica(id) {
     const confirmar = confirm("Deseja excluir esta ficha técnica?");
     if (!confirmar) return;
@@ -1120,12 +1213,50 @@ function App() {
     return quantidadeConvertida * Number(item.custo_unitario || 0);
   }
 
-  function calcularCustoFicha(fichaId) {
-    return fichaIngredientes
-      .filter((item) => String(item.ficha_id) === String(fichaId))
+  function calcularCustoSubficha(item, visitadas = new Set()) {
+    const subficha = fichasTecnicas.find((ficha) => {
+      return String(ficha.id) === String(item.subficha_id);
+    });
+
+    if (!subficha) return 0;
+
+    const custoTotalSubficha = calcularCustoFicha(subficha.id, visitadas);
+    const rendimento = Number(subficha.rendimento || 0);
+
+    if (rendimento <= 0) return 0;
+
+    const quantidadeConvertida = converterParaUnidadeCompra(
+      item.quantidade,
+      item.unidade,
+      subficha.unidade_rendimento
+    );
+
+    const custoPorUnidadeRendimento = custoTotalSubficha / rendimento;
+
+    return quantidadeConvertida * custoPorUnidadeRendimento;
+  }
+
+  function calcularCustoFicha(fichaId, visitadas = new Set()) {
+    const id = String(fichaId);
+
+    if (visitadas.has(id)) return 0;
+
+    const proximasVisitadas = new Set(visitadas);
+    proximasVisitadas.add(id);
+
+    const custoIngredientes = fichaIngredientes
+      .filter((item) => String(item.ficha_id) === id)
       .reduce((total, item) => {
         return total + calcularCustoIngredienteFicha(item);
       }, 0);
+
+    const custoSubfichas = fichaSubfichas
+      .filter((item) => String(item.ficha_id) === id)
+      .reduce((total, item) => {
+        return total + calcularCustoSubficha(item, proximasVisitadas);
+      }, 0);
+
+    return custoIngredientes + custoSubfichas;
   }
 
   async function criarModeloChecklist() {
@@ -1580,6 +1711,7 @@ function App() {
           setMovimentoMotivo={setMovimentoMotivo}
           registrarMovimentoEstoque={registrarMovimentoEstoque}
           calcularSaldoEstoque={calcularSaldoEstoque}
+          unidades={unidades}
         />
       )}
 
@@ -1588,6 +1720,7 @@ function App() {
           estoqueItens={estoqueItens}
           fichasTecnicas={fichasTecnicas}
           fichaIngredientes={fichaIngredientes}
+          fichaSubfichas={fichaSubfichas}
           novaFichaNome={novaFichaNome}
           setNovaFichaNome={setNovaFichaNome}
           fichaRendimento={fichaRendimento}
@@ -1605,10 +1738,19 @@ function App() {
           setIngredienteQuantidade={setIngredienteQuantidade}
           ingredienteUnidade={ingredienteUnidade}
           setIngredienteUnidade={setIngredienteUnidade}
+          subfichaSelecionadaId={subfichaSelecionadaId}
+          setSubfichaSelecionadaId={setSubfichaSelecionadaId}
+          subfichaQuantidade={subfichaQuantidade}
+          setSubfichaQuantidade={setSubfichaQuantidade}
+          subfichaUnidade={subfichaUnidade}
+          setSubfichaUnidade={setSubfichaUnidade}
           adicionarIngredienteFicha={adicionarIngredienteFicha}
+          adicionarSubfichaNaFicha={adicionarSubfichaNaFicha}
           excluirFichaTecnica={excluirFichaTecnica}
           calcularCustoFicha={calcularCustoFicha}
           calcularCustoIngredienteFicha={calcularCustoIngredienteFicha}
+          calcularCustoSubficha={calcularCustoSubficha}
+          unidades={unidades}
         />
       )}
 

@@ -2,6 +2,7 @@ export default function FichasTecnicas({
   estoqueItens,
   fichasTecnicas,
   fichaIngredientes,
+  fichaSubfichas,
 
   novaFichaNome,
   setNovaFichaNome,
@@ -23,10 +24,20 @@ export default function FichasTecnicas({
   ingredienteUnidade,
   setIngredienteUnidade,
 
+  subfichaSelecionadaId,
+  setSubfichaSelecionadaId,
+  subfichaQuantidade,
+  setSubfichaQuantidade,
+  subfichaUnidade,
+  setSubfichaUnidade,
+
   adicionarIngredienteFicha,
+  adicionarSubfichaNaFicha,
   excluirFichaTecnica,
   calcularCustoFicha,
   calcularCustoIngredienteFicha,
+  calcularCustoSubficha,
+  unidades,
 }) {
   const ficha = fichasTecnicas.find(
     (item) => String(item.id) === String(fichaSelecionadaId)
@@ -36,8 +47,20 @@ export default function FichasTecnicas({
     (item) => String(item.ficha_id) === String(fichaSelecionadaId)
   );
 
+  const subfichasDaFicha = fichaSubfichas.filter(
+    (item) => String(item.ficha_id) === String(fichaSelecionadaId)
+  );
+
   const ingredienteSelecionado = estoqueItens.find(
     (item) => String(item.id) === String(ingredienteItemId)
+  );
+
+  const subfichaSelecionada = fichasTecnicas.find(
+    (item) => String(item.id) === String(subfichaSelecionadaId)
+  );
+
+  const fichasDisponiveisComoSubficha = fichasTecnicas.filter(
+    (item) => String(item.id) !== String(fichaSelecionadaId)
   );
 
   const custoTotal = ficha ? calcularCustoFicha(ficha.id) : 0;
@@ -52,41 +75,65 @@ export default function FichasTecnicas({
 
       <h3>Cadastrar Ficha</h3>
 
-      <input
-        placeholder="Nome da ficha"
-        value={novaFichaNome}
-        onChange={(e) => setNovaFichaNome(e.target.value)}
-      />
+      <label>
+        Nome da ficha
+        <br />
+        <input
+          placeholder="Ex: Risoto de Ervilha"
+          value={novaFichaNome}
+          onChange={(e) => setNovaFichaNome(e.target.value)}
+        />
+      </label>
 
       <br />
       <br />
 
-      <input
-        type="number"
-        min="0"
-        step="0.01"
-        placeholder="Rendimento"
-        value={fichaRendimento}
-        onChange={(e) => setFichaRendimento(e.target.value)}
-      />
-
-      <input
-        placeholder="Unidade rendimento"
-        value={fichaUnidadeRendimento}
-        onChange={(e) => setFichaUnidadeRendimento(e.target.value)}
-      />
+      <label>
+        Rendimento
+        <br />
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Ex: 10"
+          value={fichaRendimento}
+          onChange={(e) => setFichaRendimento(e.target.value)}
+        />
+      </label>
 
       <br />
       <br />
 
-      <input
-        type="number"
-        min="0"
-        step="0.01"
-        placeholder="Preço de venda por porção"
-        value={fichaPrecoVenda}
-        onChange={(e) => setFichaPrecoVenda(e.target.value)}
-      />
+      <label>
+        Unidade do rendimento
+        <br />
+        <select
+          value={fichaUnidadeRendimento}
+          onChange={(e) => setFichaUnidadeRendimento(e.target.value)}
+        >
+          {unidades.map((unidade) => (
+            <option key={unidade} value={unidade}>
+              {unidade}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <br />
+      <br />
+
+      <label>
+        Preço de venda por porção
+        <br />
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Ex: 48"
+          value={fichaPrecoVenda}
+          onChange={(e) => setFichaPrecoVenda(e.target.value)}
+        />
+      </label>
 
       <br />
       <br />
@@ -97,16 +144,21 @@ export default function FichasTecnicas({
 
       <h3>Ficha Selecionada</h3>
 
-      <select
-        value={fichaSelecionadaId}
-        onChange={(e) => setFichaSelecionadaId(e.target.value)}
-      >
-        {fichasTecnicas.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.nome}
-          </option>
-        ))}
-      </select>
+      <label>
+        Ficha
+        <br />
+        <select
+          value={fichaSelecionadaId}
+          onChange={(e) => setFichaSelecionadaId(e.target.value)}
+        >
+        <option value="">Selecione...</option>
+          {fichasTecnicas.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.nome}
+            </option>
+          ))}
+        </select>
+      </label>
 
       {ficha && (
         <>
@@ -139,19 +191,23 @@ export default function FichasTecnicas({
 
       <hr />
 
-      <h3>Adicionar Ingrediente</h3>
+      <h3>Adicionar Ingrediente de Estoque</h3>
 
-      <select
-        value={ingredienteItemId}
-        onChange={(e) => setIngredienteItemId(e.target.value)}
-      >
-        {estoqueItens.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.nome} - R$ {Number(item.custo_compra || 0).toFixed(2)}/
-            {item.unidade}
-          </option>
-        ))}
-      </select>
+      <label>
+        Ingrediente
+        <br />
+        <select
+          value={ingredienteItemId}
+          onChange={(e) => setIngredienteItemId(e.target.value)}
+        >
+          {estoqueItens.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.nome} - R$ {Number(item.custo_compra || 0).toFixed(2)}/
+              {item.unidade}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <br />
       <br />
@@ -164,20 +220,36 @@ export default function FichasTecnicas({
         </p>
       )}
 
-      <input
-        type="number"
-        min="0.001"
-        step="0.001"
-        placeholder="Quantidade usada"
-        value={ingredienteQuantidade}
-        onChange={(e) => setIngredienteQuantidade(e.target.value)}
-      />
+      <label>
+        Quantidade usada
+        <br />
+        <input
+          type="number"
+          min="0.001"
+          step="0.001"
+          placeholder="Ex: 180"
+          value={ingredienteQuantidade}
+          onChange={(e) => setIngredienteQuantidade(e.target.value)}
+        />
+      </label>
 
-      <input
-        placeholder="Unidade usada. Ex: g, kg, ml, L, un"
-        value={ingredienteUnidade}
-        onChange={(e) => setIngredienteUnidade(e.target.value)}
-      />
+      <br />
+      <br />
+
+      <label>
+        Unidade usada
+        <br />
+        <select
+          value={ingredienteUnidade}
+          onChange={(e) => setIngredienteUnidade(e.target.value)}
+        >
+          {unidades.map((unidade) => (
+            <option key={unidade} value={unidade}>
+              {unidade}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <br />
       <br />
@@ -186,7 +258,75 @@ export default function FichasTecnicas({
 
       <hr />
 
-      <h3>Ingredientes</h3>
+      <h3>Adicionar Subficha / Preparo Base</h3>
+
+      <label>
+        Subficha
+        <br />
+        <select
+          value={subfichaSelecionadaId}
+          onChange={(e) => setSubfichaSelecionadaId(e.target.value)}
+        >
+          {fichasDisponiveisComoSubficha.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.nome} - rendimento {item.rendimento}{" "}
+              {item.unidade_rendimento}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <br />
+      <br />
+
+      {subfichaSelecionada && (
+        <p>
+          <strong>Custo da subficha:</strong> R${" "}
+          {calcularCustoFicha(subfichaSelecionada.id).toFixed(2)} / rendimento{" "}
+          {subfichaSelecionada.rendimento}{" "}
+          {subfichaSelecionada.unidade_rendimento}
+        </p>
+      )}
+
+      <label>
+        Quantidade usada da subficha
+        <br />
+        <input
+          type="number"
+          min="0.001"
+          step="0.001"
+          placeholder="Ex: 300"
+          value={subfichaQuantidade}
+          onChange={(e) => setSubfichaQuantidade(e.target.value)}
+        />
+      </label>
+
+      <br />
+      <br />
+
+      <label>
+        Unidade usada da subficha
+        <br />
+        <select
+          value={subfichaUnidade}
+          onChange={(e) => setSubfichaUnidade(e.target.value)}
+        >
+          {unidades.map((unidade) => (
+            <option key={unidade} value={unidade}>
+              {unidade}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <br />
+      <br />
+
+      <button onClick={adicionarSubfichaNaFicha}>Adicionar Subficha</button>
+
+      <hr />
+
+      <h3>Ingredientes Diretos</h3>
 
       {ingredientes.length === 0 ? (
         <p>Nenhum ingrediente adicionado.</p>
@@ -210,6 +350,36 @@ export default function FichasTecnicas({
                 <td>{item.unidade}</td>
                 <td>R$ {Number(item.custo_unitario || 0).toFixed(2)}</td>
                 <td>R$ {calcularCustoIngredienteFicha(item).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <hr />
+
+      <h3>Subfichas / Preparos Base</h3>
+
+      {subfichasDaFicha.length === 0 ? (
+        <p>Nenhuma subficha adicionada.</p>
+      ) : (
+        <table border="1" cellPadding="8">
+          <thead>
+            <tr>
+              <th>Subficha</th>
+              <th>Qtd.</th>
+              <th>Un.</th>
+              <th>Custo Calculado</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {subfichasDaFicha.map((item) => (
+              <tr key={item.id}>
+                <td>{item.subficha_nome}</td>
+                <td>{item.quantidade}</td>
+                <td>{item.unidade}</td>
+                <td>R$ {calcularCustoSubficha(item).toFixed(2)}</td>
               </tr>
             ))}
           </tbody>

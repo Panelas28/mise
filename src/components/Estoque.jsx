@@ -26,6 +26,7 @@ export default function Estoque({
 
   registrarMovimentoEstoque,
   calcularSaldoEstoque,
+  unidades,
 }) {
   return (
     <>
@@ -33,53 +34,78 @@ export default function Estoque({
 
       <h3>Cadastrar Item</h3>
 
-      <input
-        placeholder="Nome do insumo"
-        value={novoItemEstoque}
-        onChange={(e) => setNovoItemEstoque(e.target.value)}
-      />
+      <label>
+        Nome do insumo
+        <br />
+        <input
+          placeholder="Ex: Arroz Arbóreo"
+          value={novoItemEstoque}
+          onChange={(e) => setNovoItemEstoque(e.target.value)}
+        />
+      </label>
 
       <br />
       <br />
 
-      <input
-        placeholder="Categoria"
-        value={novaCategoriaEstoque}
-        onChange={(e) => setNovaCategoriaEstoque(e.target.value)}
-      />
+      <label>
+        Categoria
+        <br />
+        <input
+          placeholder="Ex: Grãos, Hortifruti, Laticínios"
+          value={novaCategoriaEstoque}
+          onChange={(e) => setNovaCategoriaEstoque(e.target.value)}
+        />
+      </label>
 
       <br />
       <br />
 
-      <input
-        placeholder="Unidade de compra. Ex: kg, L, un"
-        value={novaUnidadeEstoque}
-        onChange={(e) => setNovaUnidadeEstoque(e.target.value)}
-      />
+      <label>
+        Unidade de compra
+        <br />
+        <select
+          value={novaUnidadeEstoque}
+          onChange={(e) => setNovaUnidadeEstoque(e.target.value)}
+        >
+          {unidades.map((unidade) => (
+            <option key={unidade} value={unidade}>
+              {unidade}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <br />
       <br />
 
-      <input
-        type="number"
-        min="0"
-        step="0.01"
-        placeholder="Custo de compra. Ex: 20 para R$20/kg"
-        value={novoCustoCompra}
-        onChange={(e) => setNovoCustoCompra(e.target.value)}
-      />
+      <label>
+        Custo de compra
+        <br />
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Ex: 20 para R$20/kg"
+          value={novoCustoCompra}
+          onChange={(e) => setNovoCustoCompra(e.target.value)}
+        />
+      </label>
 
       <br />
       <br />
 
-      <input
-        type="number"
-        min="0"
-        step="0.01"
-        placeholder="Estoque mínimo"
-        value={novoEstoqueMinimo}
-        onChange={(e) => setNovoEstoqueMinimo(e.target.value)}
-      />
+      <label>
+        Estoque mínimo
+        <br />
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Ex: 5"
+          value={novoEstoqueMinimo}
+          onChange={(e) => setNovoEstoqueMinimo(e.target.value)}
+        />
+      </label>
 
       <br />
       <br />
@@ -90,49 +116,65 @@ export default function Estoque({
 
       <h3>Movimentar Estoque</h3>
 
-      <select
-        value={movimentoItemId}
-        onChange={(e) => setMovimentoItemId(e.target.value)}
-      >
-        {estoqueItens.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.nome} ({item.unidade})
-          </option>
-        ))}
-      </select>
+      <label>
+        Item
+        <br />
+        <select
+          value={movimentoItemId}
+          onChange={(e) => setMovimentoItemId(e.target.value)}
+        >
+          {estoqueItens.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.nome} ({item.unidade})
+            </option>
+          ))}
+        </select>
+      </label>
 
       <br />
       <br />
 
-      <select
-        value={movimentoTipo}
-        onChange={(e) => setMovimentoTipo(e.target.value)}
-      >
-        <option>Entrada</option>
-        <option>Saída</option>
-        <option>Ajuste</option>
-      </select>
+      <label>
+        Tipo de movimento
+        <br />
+        <select
+          value={movimentoTipo}
+          onChange={(e) => setMovimentoTipo(e.target.value)}
+        >
+          <option>Entrada</option>
+          <option>Saída</option>
+          <option>Ajuste</option>
+        </select>
+      </label>
 
       <br />
       <br />
 
-      <input
-        type="number"
-        min="0.01"
-        step="0.01"
-        placeholder="Quantidade"
-        value={movimentoQuantidade}
-        onChange={(e) => setMovimentoQuantidade(e.target.value)}
-      />
+      <label>
+        Quantidade
+        <br />
+        <input
+          type="number"
+          min="0.01"
+          step="0.01"
+          placeholder="Quantidade"
+          value={movimentoQuantidade}
+          onChange={(e) => setMovimentoQuantidade(e.target.value)}
+        />
+      </label>
 
       <br />
       <br />
 
-      <input
-        placeholder="Motivo"
-        value={movimentoMotivo}
-        onChange={(e) => setMovimentoMotivo(e.target.value)}
-      />
+      <label>
+        Motivo
+        <br />
+        <input
+          placeholder="Ex: compra, produção, perda"
+          value={movimentoMotivo}
+          onChange={(e) => setMovimentoMotivo(e.target.value)}
+        />
+      </label>
 
       <br />
       <br />
